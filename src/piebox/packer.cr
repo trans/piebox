@@ -119,8 +119,8 @@ module Piebox
             score += 10 + 3 # assigned + action bonus
             next
           else
-            # Can't fit action here, skip to next page via fallback
-            break
+            # Can't fit 3-cell action — downgrade to MotionLines (1 cell)
+            tag.action_style = ActionStyle::MotionLines
           end
         end
 

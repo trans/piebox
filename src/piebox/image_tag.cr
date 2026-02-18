@@ -9,6 +9,8 @@ module Piebox
     property description : String?
     property ai_text : String?
 
+    ACTION_STYLES = [ActionStyle::Split3, ActionStyle::ZoomIn, ActionStyle::MotionLines]
+
     def initialize(
       @path,
       @significance = Significance::Normal,
@@ -17,6 +19,10 @@ module Piebox
       @caption = nil,
       @description = nil
     )
+      # Pick a random action style if action modifier is set but no style specified
+      if action? && @action_style.nil?
+        @action_style = ACTION_STYLES.sample
+      end
     end
 
     def vista? : Bool
