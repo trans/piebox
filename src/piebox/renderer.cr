@@ -4,12 +4,28 @@ module Piebox
   class Renderer
     MM_TO_PT = 72.0 / 25.4 # 1mm ≈ 2.835pt
 
-    def initialize(@manifest : Manifest)
+    getter page_width : Float64
+    getter page_height : Float64
+    getter margin : Float64
+    getter gutter : Float64
+
+    # Direct constructor with dimensions in mm.
+    def initialize(@page_width = 210.0, @page_height = 297.0, @margin = 10.0, @gutter = 5.0)
+    end
+
+    # Convenience constructor from a Manifest.
+    def self.new(manifest : Manifest)
+      new(
+        page_width: manifest.page_width,
+        page_height: manifest.page_height,
+        margin: manifest.margin,
+        gutter: manifest.gutter
+      )
     end
 
     def render(pages : Array(Page), output_path : String)
-      width_pt = @manifest.page_width * MM_TO_PT
-      height_pt = @manifest.page_height * MM_TO_PT
+      width_pt = @page_width * MM_TO_PT
+      height_pt = @page_height * MM_TO_PT
 
       surface = Cairo::PdfSurface.new(output_path, width_pt, height_pt)
       ctx = Cairo::Context.new(surface)
@@ -23,8 +39,8 @@ module Piebox
     end
 
     private def render_page(ctx : Cairo::Context, page : Page, width_pt : Float64, height_pt : Float64)
-      margin = @manifest.margin * MM_TO_PT
-      gutter = @manifest.gutter * MM_TO_PT
+      margin = @margin * MM_TO_PT
+      gutter = @gutter * MM_TO_PT
 
       # Usable area after margins
       usable_w = width_pt - 2 * margin
