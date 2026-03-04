@@ -1,5 +1,12 @@
 require "cairo"
 
+@[Link("webp")]
+lib LibWebP
+  fun WebPGetInfo(data : UInt8*, data_size : LibC::SizeT, width : Int32*, height : Int32*) : Int32
+  fun WebPDecodeRGBA(data : UInt8*, data_size : LibC::SizeT, width : Int32*, height : Int32*) : UInt8*
+  fun WebPFree(ptr : Void*) : Void
+end
+
 module Piebox
   class Renderer
     MM_TO_PT = 72.0 / 25.4 # 1mm ≈ 2.835pt
@@ -90,10 +97,42 @@ module Piebox
       end
     end
 
+    private def load_surface(path : String) : Cairo::Surface
+      if path.ends_with?(".webp")
+        data = File.read(path).to_slice
+        pixels = LibWebP.WebPDecodeRGBA(data, data.size, out width, out height)
+        raise "WebP decode failed: #{path}" if pixels.null?
+
+        stride = Cairo::Format::ARGB32.stride_for_width(width)
+        buf = Bytes.new(stride * height)
+
+        height.times do |row|
+          width.times do |col|
+            src = (row * width + col) * 4
+            dst = row * stride + col * 4
+            r = pixels[src]
+            g = pixels[src + 1]
+            b = pixels[src + 2]
+            a = pixels[src + 3]
+            # Cairo ARGB32 on little-endian is BGRA in memory
+            buf[dst] = b
+            buf[dst + 1] = g
+            buf[dst + 2] = r
+            buf[dst + 3] = a
+          end
+        end
+
+        LibWebP.WebPFree(pixels.as(Void*))
+        Cairo::Surface.new(buf, Cairo::Format::ARGB32, width, height, stride)
+      else
+        Cairo::Surface.new(path)
+      end
+    end
+
     private def render_image_cell(ctx : Cairo::Context, tag : ImageTag, x : Float64, y : Float64, w : Float64, h : Float64)
       return unless File.exists?(tag.path)
 
-      img = Cairo::Surface.new(tag.path)
+      img = load_surface(tag.path)
       img_w = img.width.to_f
       img_h = img.height.to_f
 
@@ -132,7 +171,7 @@ module Piebox
     private def render_split3(ctx : Cairo::Context, tag : ImageTag, x : Float64, y : Float64, w : Float64, h : Float64)
       return unless File.exists?(tag.path)
 
-      img = Cairo::Surface.new(tag.path)
+      img = load_surface(tag.path)
       img_w = img.width.to_f
       img_h = img.height.to_f
       pane_w = w / 3.0
@@ -156,7 +195,7 @@ module Piebox
     private def render_zoom_in(ctx : Cairo::Context, tag : ImageTag, x : Float64, y : Float64, w : Float64, h : Float64)
       return unless File.exists?(tag.path)
 
-      img = Cairo::Surface.new(tag.path)
+      img = load_surface(tag.path)
       img_w = img.width.to_f
       img_h = img.height.to_f
 
